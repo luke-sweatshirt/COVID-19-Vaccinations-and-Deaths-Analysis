@@ -1,0 +1,102 @@
+-- select data we're going to be using
+
+select region, date, total_cases, new_cases, total_deaths, population
+from covid_deaths
+where continent is not null
+order by 
+1, 2;
+
+-- looking at total cases vs total deaths
+-- shows likelihood, by country, of dying if you contract COVID
+
+select region, date, total_cases, total_deaths, (100*(total_deaths/total_cases)) as death_rate
+from covid_deaths
+where continent is not null
+order by 
+1, 2;
+
+-- looking at total cases vs population
+-- shows what percentage of population contracted COVID
+
+select region, date, population, total_cases, (100*(total_cases/population)) as contraction_rate
+from covid_deaths
+where continent is not null
+order by 
+1, 2;
+
+-- looking at countries with highest infection rate comp. to pop.
+
+select region, population, max(total_cases) as highest_infection_count, max(100*(total_cases/population)) as contraction_rate
+from covid_deaths
+where continent is not null
+group by region, population
+order by 
+contraction_rate desc;
+
+-- showing the countries with the highest death count by population
+
+select region, max(total_deaths) as total_death_count
+from covid_deaths
+where continent is not null
+group by region
+order by 
+total_death_count desc;
+
+-- let's break the data down by continent
+
+-- showing the continents with the highest death count
+
+select continent, max(total_deaths) as total_death_count
+from covid_deaths
+where continent is not null
+group by continent
+order by 
+total_death_count desc;
+
+
+-- global numbers
+
+-- global cases, deaths, and death rate, each day
+
+select date, sum(total_cases) as total_cases, sum(new_deaths) as total_deaths, (sum(new_deaths)/sum(new_cases))*100 as death_rate
+from covid_deaths
+where continent is not null
+group by date
+order by 
+1, 2;
+
+-- global cases, deaths, and death rate, all time
+
+select sum(total_cases) as total_cases, sum(new_deaths) as total_deaths, (sum(new_deaths)/sum(new_cases))*100 as death_rate
+from covid_deaths
+where continent is not null;
+
+
+-- looking at total population vs vaccinations
+
+-- temp table
+
+drop table if exists percent_population_vaccinated;
+
+create table percent_population_vaccinated
+(
+continent text,
+region text,
+date date,
+population numeric,
+new_vaccinations numeric,
+cumulative_vaccinations numeric
+);
+
+insert into percent_population_vaccinated
+select dea.continent, dea.region, dea.date, dea.population, vax.new_vaccinations
+, (sum(vax.new_vaccinations) over (partition by dea.region order by dea.region, dea.date)) as cumulative_vaccinations
+from covid_deaths dea
+join covid_vax vax
+	on dea.region = vax.region
+	and dea.date = vax.date
+where dea.continent is not null
+--order by 2,3
+;
+
+select *, (100*(cumulative_vaccinations/population)) as percent_vaccinated from percent_population_vaccinated;
